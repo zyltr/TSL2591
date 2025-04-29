@@ -28,10 +28,11 @@ class Time:
 
 class TSL2591:
     """
-    TSL2591 High Precision Light Sensor
+    TSL2591 High-Precision Light Sensor
     """
 
     ADDRESS: int = const(0x29)
+
     COMMAND: int = const(0xA0)
     DEVICE_ID = const(0x50)
     LUX_COEFB = 1.64
@@ -48,7 +49,9 @@ class TSL2591:
     REGISTER_C1DATAL: int = const(0x16)
     REGISTER_C1DATAH: int = const(0x17)
 
-    def __init__(self, device: I2C, address: int = ADDRESS, debug: bool = False) -> None:
+    def __init__(
+        self, device: I2C, address: int = ADDRESS, debug: bool = False
+    ) -> None:
         """
         :param device: The I2C interface instance used to communicate with the device.
         :param address: The I2C address of the TSL2591 sensor. Defaults to ADDRESS 0x29.
@@ -63,9 +66,9 @@ class TSL2591:
         # Verify Device ID
         if self._debug:
             print("Checking ID...")
-        self._target(self.REGISTER_ID)
+        self._target(TSL2591.REGISTER_ID)
         value: int = int.from_bytes(self._read())
-        if value != self.DEVICE_ID:
+        if value != TSL2591.DEVICE_ID:
             raise RuntimeError("Failed to find TSL2591!")
 
         # Enable
@@ -74,19 +77,21 @@ class TSL2591:
     def _print(self, message: str, value: bytes) -> None:
         """
         :param message: String message to be displayed alongside the debug information.
-        :param value: Bytes object representing the value to be printed in various formats.
+        :param value: Byte object representing the value to be printed in various formats.
         :return: None
         """
         if self._debug:
             conversion = int.from_bytes(value)
-            print(f"{message}: Bytes {value} | Hex {value.hex()} | Dec {conversion} | Bin {bin(conversion)}")
+            print(
+                f"{message}: Bytes {value} | Hex {value.hex()} | Dec {conversion} | Bin {bin(conversion)}"
+            )
 
     def _target(self, register: int) -> None:
         """
         :param register: The register address to which the command is targeted, specified as an integer.
         :return: None
         """
-        buffer: bytes = (self.COMMAND | register).to_bytes()
+        buffer: bytes = (TSL2591.COMMAND | register).to_bytes()
         self._print(message="Command", value=buffer)
         self._device.writeto(self._address, buffer)
 
@@ -109,7 +114,13 @@ class TSL2591:
         self._print(message="Writing", value=buffer)
         self._device.writeto(self._address, buffer)
 
-    def enable(self, aen: bool = True, aien: bool = False, npien: bool = False, pon: bool = True) -> None:
+    def enable(
+        self,
+        aen: bool = True,
+        aien: bool = False,
+        npien: bool = False,
+        pon: bool = True,
+    ) -> None:
         """
         :param aen: Enable or disable ALS. Set to True to enable, False to disable.
         :param aien: Enable or disable the ALS interrupt. Set to True to enable, False to disable.
@@ -120,7 +131,7 @@ class TSL2591:
         if self._debug:
             print(f"{'Enabling' if pon else 'Disabling'} TSL2591...")
             print(f"AEN: {aen}, AIEN: {aien}, NPIEN: {npien}, PON: {pon}")
-        self._target(self.REGISTER_ENABLE)
+        self._target(TSL2591.REGISTER_ENABLE)
         buffer: bytes = (npien << 7 | aien << 4 | aen << 1 | pon).to_bytes()
         self._write(buffer)
 
@@ -156,7 +167,7 @@ class TSL2591:
         if self._debug:
             print("Setting Gain...")
         assert value in (Gain.LOW, Gain.MEDIUM, Gain.HIGH, Gain.MAX)
-        self._target(self.REGISTER_CONFIG)
+        self._target(TSL2591.REGISTER_CONFIG)
         buffer: bytes = self._read()
         reading: int = int.from_bytes(buffer)
         CONFIG_CLEAR_AGAIN_MASK: int = 0x07
@@ -177,7 +188,7 @@ class TSL2591:
     def lux(self) -> float:
         """
         Calculates lux based on the current gain and integration time. Can raise an error is the sensor becomes
-        over-saturated. This can happen when the environment is too bright for the sensor and therefore, gain and
+        over-saturated. This can happen when the environment is too bright for the sensor, and therefore, gain and
         integration time must be adjusted accordingly.
 
         :return: The calculated lux value as a floating-point number.
@@ -195,7 +206,9 @@ class TSL2591:
         }
 
         atime: float = timings[self._time] * 1000
-        counts: int = self.MAX_COUNT_100MS if self._time == Time.MS100 else self.MAX_COUNT
+        counts: int = (
+            TSL2591.MAX_COUNT_100MS if self._time == Time.MS100 else TSL2591.MAX_COUNT
+        )
 
         if C0 >= counts or C1 >= counts:
             raise RuntimeError("Overflow reading channels! Try reducing sensor gain!")
@@ -209,9 +222,9 @@ class TSL2591:
         elif self._gain == Gain.HIGH:
             again = 9876.0
 
-        CPL = (atime * again) / self.LUX_DF
-        LUX0 = (C0 - (self.LUX_COEFB * C1)) / CPL
-        LUX1 = ((self.LUX_COEFC * C0) - (self.LUX_COEFD * C1)) / CPL
+        CPL = (atime * again) / TSL2591.LUX_DF
+        LUX0 = (C0 - (TSL2591.LUX_COEFB * C1)) / CPL
+        LUX1 = ((TSL2591.LUX_COEFC * C0) - (TSL2591.LUX_COEFD * C1)) / CPL
 
         return max(LUX0, LUX1)
 
@@ -222,13 +235,13 @@ class TSL2591:
                  The first integer represents the raw luminosity data from channel 0,
                  and the second integer represents the raw luminosity data from channel 1.
         """
-        self._target(self.REGISTER_C0DATAL)
+        self._target(TSL2591.REGISTER_C0DATAL)
         C0L: bytes = self._read()
-        self._target(self.REGISTER_C0DATAH)
+        self._target(TSL2591.REGISTER_C0DATAH)
         C0H: bytes = self._read()
-        self._target(self.REGISTER_C1DATAL)
+        self._target(TSL2591.REGISTER_C1DATAL)
         C1L: bytes = self._read()
-        self._target(self.REGISTER_C1DATAH)
+        self._target(TSL2591.REGISTER_C1DATAH)
         C1H: bytes = self._read()
 
         C0 = C0H + C0L
@@ -254,7 +267,7 @@ class TSL2591:
         return self._time
 
     @time.setter
-    def time(self, value: int) -> None:
+    def time(self, value: Time) -> None:
         """
         Sets the integration time of the sensor. This method ensures that the provided value is one of the
         predefined acceptable constants for time intervals.
@@ -265,8 +278,8 @@ class TSL2591:
         """
         if self._debug:
             print("Setting Integration Time...")
-        assert value in (Time.MS100, Time.MS200, Time.MS300, Time.MS400, Time.MS500, Time.MS600)
-        self._target(self.REGISTER_CONFIG)
+
+        self._target(TSL2591.REGISTER_CONFIG)
         buffer: bytes = self._read()
         reading: int = int.from_bytes(buffer)
         CONFIG_CLEAR_TIME_MASK: int = 0x30
